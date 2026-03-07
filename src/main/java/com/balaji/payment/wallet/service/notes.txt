@@ -1,0 +1,114 @@
+package com.balaji.payment.wallet.service;
+
+import java.math.BigDecimal;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.balaji.payment.user.entity.User;
+import com.balaji.payment.wallet.entity.Wallet;
+import com.balaji.payment.wallet.enums.Currency;
+import com.balaji.payment.wallet.repository.WalletRepository;
+
+import lombok.RequiredArgsConstructor;
+
+@Service
+@RequiredArgsConstructor
+public class WalletServiceImpl implements WalletService {
+
+    private final WalletRepository walletRepository;
+
+    @Override
+    @Transactional
+    public void createWallet(User user) {
+        Wallet wallet = Wallet.builder()
+                .user(user)
+                .balance(BigDecimal.ZERO)
+                .currency(Currency.INR) // Defaulting to USD for now
+                .status("ACTIVE")
+                .build();
+
+        walletRepository.save(wallet);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public BigDecimal getBalance(Long userId) {
+        Wallet wallet = getWalletByUserId(userId);
+        return wallet.getBalance();
+    }
+
+    @Override
+    @Transactional
+    public void deposit(Long userId, BigDecimal amount) {
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Deposit amount must be positive");
+        }
+
+        Wallet wallet = getWalletByUserId(userId);
+        validateWalletStatus(wallet);
+
+        wallet.setBalance(wallet.getBalance().add(amount));
+        walletRepository.save(wallet); // Optimistic locking (@Version) will protect concurrent edits here
+    }
+
+    @Override
+    @Transactional
+    public void withdraw(Long userId, BigDecimal amount) {
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Withdrawal amount must be positive");
+        }
+
+        Wallet wallet = getWalletByUserId(userId);
+        validateWalletStatus(wallet);
+
+        if (wallet.getBalance().compareTo(amount) < 0) {
+            throw new RuntimeException("Insufficient funds");
+        }
+
+        wallet.setBalance(wallet.getBalance().subtract(amount));
+        walletRepository.save(wallet); // Database handles concurrent overwrites due to optimistic locking
+    }
+
+    @Override
+    @Transactional
+    public void transfer(Long fromUserId, Long toUserId, BigDecimal amount) {
+        // Prevent transfer to self
+        if (fromUserId.equals(toUserId)) {
+            throw new IllegalArgumentException("Cannot transfer to the same wallet");
+        }
+
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Transfer amount must be positive");
+        }
+
+        Wallet fromWallet = getWalletByUserId(fromUserId);
+        validateWalletStatus(fromWallet);
+
+        Wallet toWallet = getWalletByUserId(toUserId);
+        validateWalletStatus(toWallet);
+
+        if (fromWallet.getBalance().compareTo(amount) < 0) {
+            throw new RuntimeException("Insufficient funds for transfer");
+        }
+
+        // Deduct from sender
+        fromWallet.setBalance(fromWallet.getBalance().subtract(amount));
+        walletRepository.save(fromWallet);
+
+        // Add to receiver
+        toWallet.setBalance(toWallet.getBalance().add(amount));
+        walletRepository.save(toWallet);
+    }
+
+    private Wallet getWalletByUserId(Long userId) {
+        return walletRepository.findByUserId(userId)
+                .orElseThrow(() -> new RuntimeException("Wallet not found for given user"));
+    }
+
+    private void validateWalletStatus(Wallet wallet) {
+        if (!"ACTIVE".equalsIgnoreCase(wallet.getStatus())) {
+            throw new RuntimeException("Wallet is not ACTIVE");
+        }
+    }
+}
