@@ -13,7 +13,8 @@ import org.springframework.web.bind.annotation.RestController;
 import com.balaji.payment.common.api.ApiResponse;
 import com.balaji.payment.user.dto.request.UserLoginRequest;
 import com.balaji.payment.user.dto.request.UserRegisterRequest;
-import com.balaji.payment.user.dto.response.UserResponse;
+import com.balaji.payment.user.dto.response.UserLoginResponse;
+import com.balaji.payment.user.dto.response.UserRegisterResponse;
 import com.balaji.payment.user.service.UserService;
 
 import lombok.RequiredArgsConstructor;
@@ -26,11 +27,11 @@ public class UserController {
     private final UserService userService;
 
     @PostMapping("/register")
-    public ResponseEntity<ApiResponse<UserResponse>> registerUser(
+    public ResponseEntity<ApiResponse<UserRegisterResponse>> registerUser(
             @Valid @RequestBody UserRegisterRequest registerRequest) {
-        UserResponse result = userService.registerUser(registerRequest);
+        UserRegisterResponse result = userService.registerUser(registerRequest);
 
-        ApiResponse<UserResponse> response = ApiResponse.<UserResponse>builder()
+        ApiResponse<UserRegisterResponse> response = ApiResponse.<UserRegisterResponse>builder()
                 .success(true)
                 .message("User registered successfully")
                 .data(result)
@@ -41,10 +42,10 @@ public class UserController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<UserResponse>> loginUser(@Valid @RequestBody UserLoginRequest loginRequest) {
-        UserResponse result = userService.loginUser(loginRequest);
+    public ResponseEntity<ApiResponse<UserLoginResponse>> loginUser(@Valid @RequestBody UserLoginRequest loginRequest) {
+        UserLoginResponse result = userService.loginUser(loginRequest);
 
-        ApiResponse<UserResponse> response = ApiResponse.<UserResponse>builder()
+        ApiResponse<UserLoginResponse> response = ApiResponse.<UserLoginResponse>builder()
                 .success(true)
                 .message("User logged in successfully")
                 .data(result)

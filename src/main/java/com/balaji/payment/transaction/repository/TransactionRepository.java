@@ -11,4 +11,6 @@ import com.balaji.payment.transaction.entity.TransactionEntity;
 @Repository
 public interface TransactionRepository extends JpaRepository<TransactionEntity, UUID> {
     List<TransactionEntity> findBySenderIdOrReceiverIdOrderByCreatedAtDesc(UUID senderId, UUID receiverId);
+
+    java.util.Optional<TransactionEntity> findByIdempotencyKey(String idempotencyKey);
 }

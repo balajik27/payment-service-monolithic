@@ -22,4 +22,7 @@ public class TransactionRequest {
     @DecimalMin(value = "0.01", message = "Amount must be greater than zero")
     private BigDecimal amount;
 
+    @NotNull(message = "Idempotency key is required")
+    private String idempotencyKey;
+
 }

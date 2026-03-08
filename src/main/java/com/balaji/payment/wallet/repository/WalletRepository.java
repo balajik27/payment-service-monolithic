@@ -23,6 +23,8 @@ public interface WalletRepository extends JpaRepository<WalletEntity, UUID> {
 
     Optional<WalletEntity> findByUserIdAndCurrency(UUID userId, Currency currency);
 
+    boolean existsByUserIdAndCurrency(UUID userId, Currency currency);
+
     @Modifying
     @Query("UPDATE WalletEntity w SET w.balance = w.balance - :amount WHERE w.id = :id AND w.balance >= :amount")
     int deductBalance(@Param("id") UUID id, @Param("amount") BigDecimal amount);

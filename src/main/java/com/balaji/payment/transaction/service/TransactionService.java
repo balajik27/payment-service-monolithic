@@ -5,10 +5,13 @@ import java.util.stream.Collectors;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.balaji.payment.transaction.dto.request.TransactionRequest;
+import com.balaji.payment.transaction.dto.response.TransactionRecordResponse;
 import com.balaji.payment.transaction.dto.response.TransactionResponse;
 import com.balaji.payment.transaction.entity.TransactionEntity;
 import com.balaji.payment.transaction.repository.TransactionRepository;
@@ -20,6 +23,8 @@ import com.balaji.payment.config.PaymentProperties;
 import com.balaji.payment.notification.service.NotificationService;
 import com.balaji.payment.reward.service.RewardService;
 import com.balaji.payment.transaction.enums.TransactionStatus;
+import com.balaji.payment.user.dto.response.UserSimpleResponse;
+import com.balaji.payment.user.entity.UserEntity;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -32,7 +37,15 @@ public class TransactionService {
     private final RewardService rewardService;
     private final PaymentProperties paymentProperties;
 
+    @Transactional
     public TransactionResponse createTransaction(TransactionRequest request) {
+        // 0. Idempotency Check
+        Optional<TransactionEntity> existingTx = transactionRepository
+                .findByIdempotencyKey(request.getIdempotencyKey());
+        if (existingTx.isPresent()) {
+            return mapToResponse(existingTx.get());
+        }
+
         validateRequest(request);
 
         WalletEntity senderWallet = walletService.fetchUserPrimaryWallet(request.getSenderId());
@@ -68,6 +81,7 @@ public class TransactionService {
                 .tgtWallet(receiverWallet)
                 .exchangeRate(exchangeRate)
                 .status(TransactionStatus.SUCCESS)
+                .idempotencyKey(request.getIdempotencyKey())
                 .build();
 
         TransactionEntity savedTx = transactionRepository.save(transaction);
@@ -85,10 +99,10 @@ public class TransactionService {
 
     }
 
-    public List<TransactionResponse> getTransactionHistory(UUID userId) {
+    public List<TransactionRecordResponse> getTransactionHistory(UUID userId) {
         return transactionRepository.findBySenderIdOrReceiverIdOrderByCreatedAtDesc(userId, userId)
                 .stream()
-                .map(this::mapToResponse)
+                .map(this::mapToRecordResponse)
                 .collect(Collectors.toList());
     }
 
@@ -118,6 +132,30 @@ public class TransactionService {
         // }
 
         return true;
+    }
+
+    private TransactionRecordResponse mapToRecordResponse(TransactionEntity tx) {
+        return TransactionRecordResponse.builder()
+                .transactionId(tx.getId())
+                .transactionStatus(tx.getStatus())
+                .sender(mapToSimpleUserResponse(tx.getSender()))
+                .receiver(mapToSimpleUserResponse(tx.getReceiver()))
+                .srcAmount(tx.getSrcAmount())
+                .tgtAmount(tx.getTgtAmount())
+                .feeAmount(tx.getFeeAmount())
+                .exchangeRate(tx.getExchangeRate())
+                .createdAt(tx.getCreatedAt())
+                .build();
+    }
+
+    private UserSimpleResponse mapToSimpleUserResponse(UserEntity user) {
+        if (user == null)
+            return null;
+        return UserSimpleResponse.builder()
+                .id(user.getId())
+                .name(user.getName())
+                .email(user.getEmail())
+                .build();
     }
 
     private TransactionResponse mapToResponse(TransactionEntity tx) {

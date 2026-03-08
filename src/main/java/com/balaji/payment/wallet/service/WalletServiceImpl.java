@@ -6,23 +6,31 @@ import com.balaji.payment.wallet.dto.response.WalletResponse;
 
 import org.springframework.stereotype.Service;
 import com.balaji.payment.user.entity.UserEntity;
+import com.balaji.payment.user.service.UserService;
 import com.balaji.payment.wallet.entity.WalletEntity;
 import com.balaji.payment.wallet.enums.Currency;
 import com.balaji.payment.wallet.enums.WalletStatus;
 import com.balaji.payment.wallet.repository.WalletRepository;
 
-import jakarta.transaction.Transactional;
-import lombok.RequiredArgsConstructor;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.context.annotation.Lazy;
 
 import java.math.BigDecimal;
 import java.util.UUID;
 
 @Service
-@RequiredArgsConstructor
 public class WalletServiceImpl implements WalletService {
 
+    private final UserService userService;
     private final WalletRepository walletRepository;
 
+    public WalletServiceImpl(@Lazy UserService userService, WalletRepository walletRepository) {
+        this.userService = userService;
+        this.walletRepository = walletRepository;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public WalletEntity fetchUserPrimaryWallet(UUID userId) {
         if (userId == null) {
             throw new IllegalArgumentException("User ID cannot be null");
@@ -32,6 +40,8 @@ public class WalletServiceImpl implements WalletService {
                 .orElseThrow(() -> new RuntimeException("Primary wallet not found for user: " + userId));
     }
 
+    @Override
+    @Transactional(readOnly = true)
     public WalletEntity fetchBestUserWallet(UUID userId, Currency currency) {
 
         if (userId == null) {
@@ -44,14 +54,60 @@ public class WalletServiceImpl implements WalletService {
 
     @Override
     @Transactional
-    public void createWallet(UserEntity user, Currency currency) {
+    public WalletEntity initializeWallet(UserEntity user, boolean isPrimary, Currency currency) {
+        BigDecimal initialBalance = isPrimary ? new BigDecimal("100.00") : BigDecimal.ZERO;
+
         WalletEntity wallet = new WalletEntity.Builder(user, currency)
-                .withBalance(BigDecimal.ZERO)
-                .withPrimary(true)
+                .withBalance(initialBalance)
+                .withPrimary(isPrimary)
                 .withStatus(WalletStatus.ACTIVE)
                 .build();
 
-        walletRepository.save(wallet);
+        return walletRepository.save(wallet);
+    }
+
+    @Override
+    @Transactional
+    public WalletResponse deposit(UUID userId, BigDecimal amount, Currency currency) {
+        WalletEntity wallet;
+        if (currency == null) {
+            wallet = fetchUserPrimaryWallet(userId);
+        } else {
+            wallet = walletRepository.findByUserIdAndCurrency(userId, currency)
+                    .orElseThrow(() -> new RuntimeException("Wallet not found for currency: " + currency));
+        }
+
+        int rowsUpdated = walletRepository.addBalance(wallet.getId(), amount);
+        if (rowsUpdated == 0) {
+            throw new RuntimeException("Deposit failed: Wallet not found or update error.");
+        }
+
+        // Refresh from DB to get updated balance
+        WalletEntity updatedWallet = walletRepository.findById(wallet.getId())
+                .orElseThrow(() -> new RuntimeException("Wallet not found after update"));
+
+        return mapToResponse(updatedWallet);
+    }
+
+    @Override
+    @Transactional
+    public WalletResponse addWallet(UUID userId, Currency currency) {
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID cannot be null");
+        }
+        if (currency == null) {
+            throw new IllegalArgumentException("Currency cannot be null");
+        }
+
+        if (walletRepository.existsByUserIdAndCurrency(userId, currency)) {
+            throw new RuntimeException("Wallet already exists for user in " + currency);
+        }
+
+        UserEntity user = userService.fetchUserById(userId);
+
+        WalletEntity wallet = initializeWallet(user, false, currency);
+
+        return mapToResponse(wallet);
     }
 
     @Override
@@ -71,6 +127,7 @@ public class WalletServiceImpl implements WalletService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<WalletResponse> getUserWallets(UUID userId) {
         return walletRepository.findAllByUserId(userId)
                 .stream()

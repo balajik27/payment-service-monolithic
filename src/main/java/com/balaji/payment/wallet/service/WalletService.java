@@ -10,7 +10,7 @@ import java.util.List;
 import com.balaji.payment.wallet.dto.response.WalletResponse;
 
 public interface WalletService {
-    void createWallet(UserEntity user, Currency currency);
+    WalletEntity initializeWallet(UserEntity user, boolean isPrimary, Currency currency);
 
     WalletEntity fetchUserPrimaryWallet(UUID userId);
 
@@ -19,4 +19,8 @@ public interface WalletService {
     void handleTransaction(UUID senderId, UUID receiverId, BigDecimal senderAmount, BigDecimal receiverAmount);
 
     List<WalletResponse> getUserWallets(UUID userId);
+
+    WalletResponse deposit(UUID userId, BigDecimal amount, Currency currency);
+
+    WalletResponse addWallet(UUID userId, Currency currency);
 }

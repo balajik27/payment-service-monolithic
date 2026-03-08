@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.balaji.payment.common.api.ApiResponse;
 import com.balaji.payment.transaction.dto.request.TransactionRequest;
+import com.balaji.payment.transaction.dto.response.TransactionRecordResponse;
 import com.balaji.payment.transaction.dto.response.TransactionResponse;
 import com.balaji.payment.transaction.service.TransactionService;
 
@@ -21,13 +22,13 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/api/v1/transaction")
+@RequestMapping("/api/v1/transactions")
 @RequiredArgsConstructor
 public class TransactionController {
 
     private final TransactionService transactionService;
 
-    @PostMapping
+    @PostMapping("")
     public ResponseEntity<ApiResponse<TransactionResponse>> createTransaction(
             @Valid @RequestBody TransactionRequest request) {
         if (!transactionService.validateRequest(request)) {
@@ -38,9 +39,9 @@ public class TransactionController {
     }
 
     @GetMapping("/user/{userId}")
-    public ResponseEntity<ApiResponse<List<TransactionResponse>>> getTransactionHistory(
-            @PathVariable UUID userId) {
-        List<TransactionResponse> history = transactionService.getTransactionHistory(userId);
+    public ResponseEntity<ApiResponse<List<TransactionRecordResponse>>> getTransactionHistory(
+            @PathVariable("userId") UUID userId) {
+        List<TransactionRecordResponse> history = transactionService.getTransactionHistory(userId);
         return ResponseEntity.ok(ApiResponse.success(history, "Transaction history retrieved successfully"));
     }
 

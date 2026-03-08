@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.balaji.payment.common.api.ApiResponse;
+import org.springframework.dao.DataIntegrityViolationException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -31,6 +32,18 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ApiResponse<String>> handleRuntimeException(RuntimeException ex) {
         return new ResponseEntity<>(ApiResponse.error(ex.getMessage()), HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiResponse<String>> handleDataIntegrityViolationException(
+            DataIntegrityViolationException ex) {
+        if (ex.getMessage() != null && ex.getMessage().contains("idempotency_key")) {
+            return new ResponseEntity<>(
+                    ApiResponse
+                            .error("Duplicate request: This transaction has already been processed or is in progress."),
+                    HttpStatus.CONFLICT);
+        }
+        return new ResponseEntity<>(ApiResponse.error("Database constraint violation"), HttpStatus.CONFLICT);
     }
 
     @ExceptionHandler(Exception.class)
