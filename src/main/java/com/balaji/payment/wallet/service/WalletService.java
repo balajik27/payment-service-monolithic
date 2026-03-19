@@ -16,6 +16,8 @@ public interface WalletService {
 
     WalletEntity fetchBestUserWallet(UUID userId, Currency currency);
 
+    boolean hasAtLeastBalance(UUID userId, BigDecimal amount);
+
     void handleTransaction(UUID senderId, UUID receiverId, BigDecimal senderAmount, BigDecimal receiverAmount);
 
     List<WalletResponse> getUserWallets(UUID userId);

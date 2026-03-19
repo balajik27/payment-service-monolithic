@@ -53,6 +53,12 @@ public class WalletServiceImpl implements WalletService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public boolean hasAtLeastBalance(UUID walletId, BigDecimal amount) {
+        return walletRepository.existsByIdAndBalanceGreaterThanEqual(walletId, amount);
+    }
+
+    @Override
     @Transactional
     public WalletEntity initializeWallet(UserEntity user, boolean isPrimary, Currency currency) {
         BigDecimal initialBalance = isPrimary ? new BigDecimal("100.00") : BigDecimal.ZERO;
@@ -110,20 +116,66 @@ public class WalletServiceImpl implements WalletService {
         return mapToResponse(wallet);
     }
 
+    private void validatePositiveAmount(BigDecimal amount, String message) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException(message);
+        }
+    }
+
+    private WalletEntity lockWallet(UUID walletId) {
+        return walletRepository.findByIdForUpdate(walletId)
+                .orElseThrow(() -> new RuntimeException("Wallet not found: " + walletId));
+    }
+
+    private void validateWalletStatus(WalletEntity wallet) {
+        if (wallet == null) {
+            throw new IllegalArgumentException("Wallet cannot be null");
+        }
+
+        if (wallet.getStatus() == null) {
+            throw new RuntimeException("Wallet status is not set for wallet: " + wallet.getId());
+        }
+
+        if (wallet.getStatus() != WalletStatus.ACTIVE) {
+            throw new RuntimeException("Wallet is not active: " + wallet.getId());
+        }
+    }
+
     @Override
     @Transactional
     public void handleTransaction(UUID senderWalletId, UUID receiverWalletId, BigDecimal senderAmount,
             BigDecimal receiverAmount) {
 
-        int rowsUpdated = walletRepository.deductBalance(senderWalletId, senderAmount);
-        if (rowsUpdated == 0) {
-            throw new RuntimeException("Transaction failed: Insufficient balance or sender wallet not found.");
+        if (senderWalletId == null || receiverWalletId == null) {
+            throw new IllegalArgumentException("Wallet IDs cannot be null");
+        }
+        if (senderWalletId.equals(receiverWalletId)) {
+            throw new RuntimeException("Sender and receiver wallet cannot be the same");
         }
 
-        int rowsAdded = walletRepository.addBalance(receiverWalletId, receiverAmount);
-        if (rowsAdded == 0) {
-            throw new RuntimeException("Transaction failed: Receiver wallet not found.");
+        validatePositiveAmount(senderAmount, "Sender amount must be greater than zero");
+        validatePositiveAmount(receiverAmount, "Receiver amount must be greater than zero");
+
+        UUID firstLockId = senderWalletId.compareTo(receiverWalletId) < 0 ? senderWalletId : receiverWalletId;
+        UUID secondLockId = senderWalletId.compareTo(receiverWalletId) < 0 ? receiverWalletId : senderWalletId;
+
+        WalletEntity firstLockedWallet = lockWallet(firstLockId);
+        WalletEntity secondLockedWallet = lockWallet(secondLockId);
+
+        WalletEntity senderWallet = senderWalletId.equals(firstLockedWallet.getId()) ? firstLockedWallet
+                : secondLockedWallet;
+        WalletEntity receiverWallet = receiverWalletId.equals(firstLockedWallet.getId()) ? firstLockedWallet
+                : secondLockedWallet;
+
+        validateWalletStatus(senderWallet);
+        validateWalletStatus(receiverWallet);
+
+        if (senderWallet.getBalance().compareTo(senderAmount) < 0) {
+            throw new RuntimeException("Transaction failed: Insufficient balance.");
         }
+
+        senderWallet.setBalance(senderWallet.getBalance().subtract(senderAmount));
+        receiverWallet.setBalance(receiverWallet.getBalance().add(receiverAmount));
     }
 
     @Override

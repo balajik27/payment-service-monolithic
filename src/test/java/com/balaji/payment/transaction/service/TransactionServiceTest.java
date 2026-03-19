@@ -1,8 +1,8 @@
 package com.balaji.payment.transaction.service;
 
 import com.balaji.payment.config.PaymentProperties;
-import com.balaji.payment.notification.service.NotificationService;
-import com.balaji.payment.reward.service.RewardService;
+// import com.balaji.payment.notification.service.NotificationService;
+// import com.balaji.payment.reward.service.RewardService;
 import com.balaji.payment.transaction.dto.request.TransactionRequest;
 import com.balaji.payment.transaction.repository.TransactionRepository;
 import com.balaji.payment.wallet.enums.Currency;
@@ -28,10 +28,14 @@ class TransactionServiceTest {
     private WalletService walletService;
     @Mock
     private TransactionRepository transactionRepository;
+
     @Mock
-    private NotificationService notificationService;
-    @Mock
-    private RewardService rewardService;
+    private ExchangeFeeService exchangeFeeService;
+
+    // @Mock
+    // private NotificationService notificationService;
+    // @Mock
+    // private RewardService rewardService;
     @Mock
     private PaymentProperties paymentProperties;
 
@@ -72,7 +76,7 @@ class TransactionServiceTest {
 
     @Test
     void calculateExchangeFee_SameCurrency_ReturnsZero() {
-        BigDecimal fee = transactionService.calculateExchangeFee(Currency.USD, Currency.USD, new BigDecimal("100"));
+        BigDecimal fee = exchangeFeeService.calculateExchangeFee(Currency.USD, Currency.USD, new BigDecimal("100"));
         assertEquals(0, fee.compareTo(BigDecimal.ZERO));
     }
 
@@ -81,7 +85,7 @@ class TransactionServiceTest {
         BigDecimal amount = new BigDecimal("100");
         BigDecimal expectedFee = amount.multiply(exchange.getFeeRate());
 
-        BigDecimal fee = transactionService.calculateExchangeFee(Currency.USD, Currency.EUR, amount);
+        BigDecimal fee = exchangeFeeService.calculateExchangeFee(Currency.USD, Currency.EUR, amount);
         assertEquals(0, expectedFee.compareTo(fee));
     }
 }

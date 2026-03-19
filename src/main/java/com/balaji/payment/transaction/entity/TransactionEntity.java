@@ -6,10 +6,11 @@ import java.util.UUID;
 
 import org.hibernate.annotations.CreationTimestamp;
 
-import com.balaji.payment.user.entity.UserEntity;
 import com.balaji.payment.wallet.entity.WalletEntity;
 
 import com.balaji.payment.transaction.enums.TransactionStatus;
+import com.balaji.payment.transaction.enums.TransactionType;
+import com.balaji.payment.user.entity.UserEntity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -42,14 +43,18 @@ public class TransactionEntity {
     private UUID id;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "type", nullable = false)
+    private TransactionType type;
+
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private TransactionStatus status;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne
     @JoinColumn(name = "sender_id", nullable = false)
     private UserEntity sender;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne
     @JoinColumn(name = "receiver_id", nullable = false)
     private UserEntity receiver;
 
@@ -72,6 +77,16 @@ public class TransactionEntity {
 
     @Column(name = "ex_rate", nullable = false, precision = 19, scale = 4)
     private BigDecimal exchangeRate;
+
+    @Column(name = "src_currency", nullable = false)
+    private String srcCurrency;
+
+    @Column(name = "tgt_currency", nullable = false)
+    private String tgtCurrency;
+
+    @ManyToOne
+    @JoinColumn(name = "reference_transaction_id")
+    private TransactionEntity referenceTransaction;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

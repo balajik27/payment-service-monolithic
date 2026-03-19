@@ -25,7 +25,9 @@ public class TransactionRecordResponse {
     private UserSimpleResponse sender;
     private UserSimpleResponse receiver;
     private BigDecimal srcAmount;
+    private String srcCurrency;
     private BigDecimal tgtAmount;
+    private String tgtCurrency;
     private BigDecimal feeAmount;
     private BigDecimal exchangeRate;
     private LocalDateTime createdAt;

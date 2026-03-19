@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.balaji.payment.common.api.ApiResponse;
+import com.balaji.payment.transaction.dto.request.RefundRequest;
 import com.balaji.payment.transaction.dto.request.TransactionRequest;
 import com.balaji.payment.transaction.dto.response.TransactionRecordResponse;
 import com.balaji.payment.transaction.dto.response.TransactionResponse;
@@ -36,6 +37,13 @@ public class TransactionController {
         }
         TransactionResponse response = transactionService.createTransaction(request);
         return ResponseEntity.ok(ApiResponse.success(response, "Transaction processed successfully"));
+    }
+
+    @PostMapping("/refund")
+    public ResponseEntity<ApiResponse<TransactionResponse>> refundTransaction(
+            @Valid @RequestBody RefundRequest request) {
+        TransactionResponse response = transactionService.refundTransaction(request);
+        return ResponseEntity.ok(ApiResponse.success(response, "Refunded Successfully"));
     }
 
     @GetMapping("/user/{userId}")
